@@ -1,4 +1,3 @@
-import { ImageryLayerFeatureInfo } from "cesium";
 import { type TransferDescriptor } from "threads";
 import { expose } from "threads/worker";
 
@@ -57,23 +56,10 @@ const renderTile = async ({
   });
 };
 
-const pickTile = async ({
-  requestedTile,
-  longitude,
-  latitude,
-  currentLayer,
-  ...renderOptions
-}: PickTileParams): Promise<ImageryLayerFeatureInfo[]> => {
-  const tileRenderer = await getTileRenderer(renderOptions);
-  return tileRenderer.pickFeatures(requestedTile, longitude, latitude, currentLayer);
-};
-
 expose({
   renderTile,
-  pickTile,
 });
 
 export type RendererWorker = object & {
   renderTile: (params: TransferDescriptor<RenderTileParams>) => void;
-  pickTile: (params: TransferDescriptor<PickTileParams>) => Promise<ImageryLayerFeatureInfo[]>;
 };
