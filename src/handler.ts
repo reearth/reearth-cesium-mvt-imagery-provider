@@ -33,23 +33,5 @@ export class RenderMainHandler extends RenderHandler {
     );
   }
 
-  async pick(options: {
-    requestedTile: TileCoordinates;
-    longitude: number;
-    latitude: number;
-    urlTemplate: URLTemplate;
-    layerNames: string[];
-    currentLayer?: LayerSimple;
-  }) {
-    return (
-      (await this.renderer?.pickFeatures(
-        options.requestedTile,
-        options.longitude,
-        options.latitude,
-        options.currentLayer,
-      )) ?? []
-    );
-  }
-
   dispose(): void {}
 }

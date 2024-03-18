@@ -65,7 +65,7 @@ const pickTile = async ({
   ...renderOptions
 }: PickTileParams): Promise<ImageryLayerFeatureInfo[]> => {
   const tileRenderer = await getTileRenderer(renderOptions);
-  return await tileRenderer.pickFeatures(requestedTile, longitude, latitude, currentLayer);
+  return tileRenderer.pickFeatures(requestedTile, longitude, latitude, currentLayer);
 };
 
 expose({
@@ -75,5 +75,5 @@ expose({
 
 export type RendererWorker = object & {
   renderTile: (params: TransferDescriptor<RenderTileParams>) => void;
-  pickTile: (params: TransferDescriptor<PickTileParams>) => ImageryLayerFeatureInfo[];
+  pickTile: (params: TransferDescriptor<PickTileParams>) => Promise<ImageryLayerFeatureInfo[]>;
 };

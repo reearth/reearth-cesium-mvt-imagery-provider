@@ -9,9 +9,11 @@ import {
   Credit,
   ImageryLayerFeatureInfo,
 } from "cesium";
+import { isEqual } from "lodash-es";
 import { LRUCache } from "lru-cache";
 
 import { RenderMainHandler } from "./handler";
+import { Renderer } from "./renderer";
 import { RenderHandler } from "./renderHandler";
 import { LayerSimple } from "./styleEvaluator/types";
 import { CESIUM_CANVAS_SIZE, ImageryProviderOption, TileCoordinates, URLTemplate } from "./types";
@@ -19,6 +21,8 @@ import { RenderWorkerHandler } from "./worker/handler";
 import { canQueue } from "./worker/workerPool";
 
 type ImageryProviderTrait = ImageryProvider;
+
+let layerUsed: LayerSimple | undefined;
 
 export class MVTImageryProvider implements ImageryProviderTrait {
   static maximumTasks = 50;
@@ -161,7 +165,12 @@ export class MVTImageryProvider implements ImageryProviderTrait {
     level: number,
     _request?: Request | undefined,
   ): Promise<ImageryTypes> | undefined {
-    console.log("currentLayer at requestImage: ", this._currentLayer);
+    const currentLayer = this._currentLayer;
+
+    if (!isEqual(layerUsed, currentLayer)) {
+      return;
+    }
+    layerUsed = currentLayer;
     if (
       this._useWorker &&
       (this.taskCount >= MVTImageryProvider.maximumTasksPerImagery ||
@@ -185,7 +194,6 @@ export class MVTImageryProvider implements ImageryProviderTrait {
     const scaleFactor = (level >= this.maximumLevel ? this._resolution : undefined) ?? 1;
     canvas.width = this._tileWidth * scaleFactor;
     canvas.height = this._tileHeight * scaleFactor;
-    const currentLayer = this._currentLayer;
     const urlTemplate = this._urlTemplate;
     const layerNames = this._layerNames;
 
@@ -202,7 +210,7 @@ export class MVTImageryProvider implements ImageryProviderTrait {
           currentLayer,
         })
         .then(() => {
-          // this.tileCache?.set(cacheKey, canvas);
+          this.tileCache?.set(cacheKey, canvas);
           return canvas;
         })
         .catch(error => {
@@ -234,14 +242,14 @@ export class MVTImageryProvider implements ImageryProviderTrait {
     const urlTemplate = this._urlTemplate;
     const layerNames = this._layerNames;
 
-    return this._handler.pick({
-      requestedTile,
-      longitude,
-      latitude,
-      urlTemplate,
-      layerNames,
-      currentLayer,
-    });
+    return (
+      (await new Renderer({ urlTemplate, layerNames }).pickFeatures(
+        requestedTile,
+        longitude,
+        latitude,
+        currentLayer,
+      )) ?? []
+    );
   }
 
   dispose() {
