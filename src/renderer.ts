@@ -48,7 +48,7 @@ export class Renderer {
   private readonly _tileWidth: number;
   private readonly _tileHeight: number;
 
-  private readonly _tileCaches = new Map<string, VectorTile>();
+  // private readonly _tileCaches = new Map<string, VectorTile>();
 
   constructor(options: RendererOption) {
     this._parseTile = defaultParseTile;
@@ -96,6 +96,8 @@ export class Renderer {
     context.strokeStyle = "black";
     context.fillStyle = "black";
     context.lineWidth = 1;
+
+    console.log("currentLayer: ", currentLayer);
 
     // Improve resolution
     context.miterLimit = 2;
@@ -325,15 +327,15 @@ export class Renderer {
 
   async _cachedTile(currentUrl: string) {
     if (!currentUrl) return;
-    const cachedTile = this._tileCaches.get(currentUrl);
-    if (cachedTile) return cachedTile;
+    // const cachedTile = this._tileCaches.get(currentUrl);
+    // if (cachedTile) return cachedTile;
     const tile = tileToCacheable(await this._parseTile(currentUrl));
-    if (tile) this._tileCaches.set(currentUrl, tile);
+    // if (tile) this._tileCaches.set(currentUrl, tile);
     return tile;
   }
 
   clearCache() {
-    this._tileCaches.clear();
+    // this._tileCaches.clear();
   }
 }
 

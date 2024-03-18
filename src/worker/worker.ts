@@ -28,7 +28,7 @@ export interface PickTileParams extends RendererOption {
 
 async function getTileRenderer(options: RendererOption): Promise<Renderer> {
   const key = createTileRenderKey(options);
-  let tileRenderer = tileRenderers.get(key);
+  let tileRenderer;
   if (tileRenderer == null) {
     tileRenderer = new Renderer(options);
     tileRenderers.set(key, tileRenderer);

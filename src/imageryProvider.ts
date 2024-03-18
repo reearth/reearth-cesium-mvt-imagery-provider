@@ -161,6 +161,7 @@ export class MVTImageryProvider implements ImageryProviderTrait {
     level: number,
     _request?: Request | undefined,
   ): Promise<ImageryTypes> | undefined {
+    console.log("currentLayer at requestImage: ", this._currentLayer);
     if (
       this._useWorker &&
       (this.taskCount >= MVTImageryProvider.maximumTasksPerImagery ||
@@ -201,7 +202,7 @@ export class MVTImageryProvider implements ImageryProviderTrait {
           currentLayer,
         })
         .then(() => {
-          this.tileCache?.set(cacheKey, canvas);
+          // this.tileCache?.set(cacheKey, canvas);
           return canvas;
         })
         .catch(error => {
