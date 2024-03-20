@@ -106,9 +106,6 @@ export class Renderer {
     origin: Point,
     currentLayer?: Layer,
   ): Promise<void> {
-    console.log("maximumLevl: ", maximumLevel);
-    maximumLevel = 24;
-    console.log("maximumLevel: ", maximumLevel);
 
     const { po } = dataTileForDisplayTile(requestedTile, maximumLevel);
 
