@@ -123,7 +123,7 @@ export function dataTileForDisplayTile(
     origin = new Point(dataTile.x * f * scale * 256, dataTile.y * f * scale * 256);
     dim = dim * scale;
   }
-  return { dataTile: dataTile, scale: scale, origin: origin, dim: dim };
+  return { dataTile: dataTile, ps: scale, po: origin, dim: dim };
 }
 
 export const transformGeom = (geom: Array<Array<Point>>, scale: number, translate: Point) => {

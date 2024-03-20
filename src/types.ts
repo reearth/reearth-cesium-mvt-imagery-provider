@@ -33,4 +33,11 @@ export type ImageryProviderOption = {
 
 export const CESIUM_CANVAS_SIZE = 256;
 
+export interface Bbox {
+  minX: number;
+  minY: number;
+  maxX: number;
+  maxY: number;
+}
+
 /// <reference types="offscreencanvas" />

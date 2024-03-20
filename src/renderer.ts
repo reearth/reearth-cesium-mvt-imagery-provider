@@ -8,8 +8,8 @@ import { onSelectFeature } from "./featureSelect";
 import { evalStyle } from "./style";
 import { Layer, LayerSimple } from "./styleEvaluator/types";
 import { isFeatureClicked } from "./terria";
-import { TileCoordinates, URLTemplate, ImageryProviderOption, CESIUM_CANVAS_SIZE } from "./types";
-import { dataTileForDisplayTile, transformGeom } from "./utils";
+import { TileCoordinates, URLTemplate, ImageryProviderOption, Bbox } from "./types";
+import { dataTileForDisplayTile } from "./utils";
 
 const MAX_VERTICES_PER_CALL = 5400;
 
@@ -48,18 +48,18 @@ export class Renderer {
   private _parseTile: (url?: string) => Promise<VectorTile | undefined>;
   private readonly _tilingScheme: WebMercatorTilingScheme;
   private readonly _layerNames: string[];
-  private readonly _tileWidth: number;
-  private readonly _tileHeight: number;
-  // private readonly internalSize = 256;
-  // private readonly paddingSize = 16;
+  // private readonly _tileWidth: number;
+  // private readonly _tileHeight: number;
+  private readonly internalSize = 256;
+  private readonly paddingSize = 16;
 
   private readonly _tileCaches = new Map<string, VectorTile>();
 
   constructor(options: RendererOption) {
     this._parseTile = defaultParseTile;
     this._urlTemplate = options.urlTemplate;
-    this._tileWidth = CESIUM_CANVAS_SIZE;
-    this._tileHeight = CESIUM_CANVAS_SIZE;
+    // this._tileWidth = CESIUM_CANVAS_SIZE;
+    // this._tileHeight = CESIUM_CANVAS_SIZE;
     this._layerNames = options.layerNames;
     this._tilingScheme = new WebMercatorTilingScheme();
   }
@@ -71,26 +71,51 @@ export class Renderer {
     maximumLevel: number,
     currentLayer?: Layer,
   ) {
-    if (requestedTile.level >= 19) requestedTile.level = 24;
-    const url = buildURLWithTileCoordinates(this._urlTemplate, requestedTile);
+    const bbox = {
+      minX: this.internalSize * requestedTile.x - this.paddingSize,
+      minY: this.internalSize * requestedTile.y - this.paddingSize,
+      maxX: this.internalSize * (requestedTile.x + 1) + this.paddingSize,
+      maxY: this.internalSize * (requestedTile.y + 1) + this.paddingSize,
+    };
+
+    const o = new Point(this.internalSize * requestedTile.x, this.internalSize * requestedTile.y);
+
     await Promise.all(
       this._layerNames.map(n =>
-        this._renderCanvas(url, context, requestedTile, n, scaleFactor, maximumLevel, currentLayer),
+        this._renderCanvas(
+          context,
+          requestedTile,
+          n,
+          scaleFactor,
+          maximumLevel,
+          bbox,
+          o,
+          currentLayer,
+        ),
       ),
     );
   }
 
   async _renderCanvas(
-    url: string,
     context: RenderingContext2D,
     requestedTile: TileCoordinates,
     layerName: string,
     scaleFactor: number,
     maximumLevel: number,
+    bbox: Bbox,
+    origin: Point,
     currentLayer?: Layer,
   ): Promise<void> {
-    if (!url) return;
+    console.log("maximumLevl: ", maximumLevel);
+    maximumLevel = 24;
+    console.log("maximumLevel: ", maximumLevel);
 
+    const { po } = dataTileForDisplayTile(requestedTile, maximumLevel);
+
+    console.log("requestedTile: ", requestedTile);
+    // console.log("dataTile: ", dataTile);
+
+    const url = buildURLWithTileCoordinates(this._urlTemplate, requestedTile);
     const tile = await this._cachedTile(url);
     const layerNames = layerName.split(/, */).filter(Boolean);
     const layers = layerNames.map(ln => tile?.layers[ln]);
@@ -106,53 +131,44 @@ export class Renderer {
     // Improve resolution
     context.save();
     context.miterLimit = 2;
-    context.setTransform(
-      (this._tileWidth * scaleFactor) / CESIUM_CANVAS_SIZE,
-      0,
-      0,
-      (this._tileHeight * scaleFactor) / CESIUM_CANVAS_SIZE,
-      0,
-      0,
-    );
-
-    // const bbox = {
-    //   minX: this.internalSize * requestedTile.x - this.paddingSize,
-    //   minY: this.internalSize * requestedTile.y - this.paddingSize,
-    //   maxX: this.internalSize * (requestedTile.x + 1) + this.paddingSize,
-    //   maxY: this.internalSize * (requestedTile.y + 1) + this.paddingSize,
-    // };
-
-    // const o = new Point(this.internalSize * requestedTile.x, this.internalSize * requestedTile.y);
+    scaleFactor;
+    // context.setTransform(
+    //   (this._tileWidth * scaleFactor) / CESIUM_CANVAS_SIZE,
+    //   0,
+    //   0,
+    //   (this._tileHeight * scaleFactor) / CESIUM_CANVAS_SIZE,
+    //   0,
+    //   0,
+    // );
 
     layers.forEach(layer => {
       if (!layer) return;
       // Vector tile works with extent [0, 4095], but canvas is only [0,255]
-      const extentFactor = CESIUM_CANVAS_SIZE / layer.extent;
+      // const extentFactor = CESIUM_CANVAS_SIZE / layer.extent;
 
-      const { scale } = dataTileForDisplayTile(requestedTile, maximumLevel);
       context.save();
-      // context.translate(origin.x - o.x, origin.y - o.y);
+      context.translate(origin.x - po.x, origin.y - po.y);
 
       for (let i = 0; i < layer.length; i++) {
         const feature = layer.feature(i);
 
-        let coordinates = feature.loadGeometry();
+        const coordinates = feature.loadGeometry();
         // const fbox = feature.bbox?.();
         // if (
         //   fbox &&
-        //   (fbox[2] * scale + origin.x < bbox.minX ||
-        //     fbox[0] * scale + origin.x > bbox.maxX ||
-        //     fbox[1] * scale + origin.y > bbox.maxY ||
-        //     fbox[3] * scale + origin.y < bbox.minY)
+        //   (fbox[2] * ps + origin.x < bbox.minX ||
+        //     fbox[0] * ps + origin.x > bbox.maxX ||
+        //     fbox[1] * ps + origin.y > bbox.maxY ||
+        //     fbox[3] * ps + origin.y < bbox.minY)
         // ) {
         //   continue;
         // }
 
-        console.log("scale: ", scale);
+        // // console.log("scale: ", scale);
 
-        if (scale !== 1) {
-          coordinates = transformGeom(coordinates, scale, new Point(0, 0));
-        }
+        // if (ps !== 1) {
+        //   coordinates = transformGeom(coordinates, ps, new Point(0, 0));
+        // }
 
         const style = evalStyle(feature, requestedTile, currentLayer);
         if (!style) {
@@ -164,11 +180,11 @@ export class Renderer {
         context.lineJoin = style.lineJoin ?? context.lineJoin;
 
         if (VectorTileFeature.types[feature.type] === "Polygon") {
-          this._renderPolygon(context, coordinates, extentFactor, (style.lineWidth ?? 1) > 0);
+          this._renderPolygon(context, coordinates, (style.lineWidth ?? 1) > 0);
         } else if (VectorTileFeature.types[feature.type] === "Point") {
-          this._renderPoint(context, coordinates, extentFactor);
+          this._renderPoint(context, coordinates);
         } else if (VectorTileFeature.types[feature.type] === "LineString") {
-          this._renderLineString(context, coordinates, extentFactor);
+          this._renderLineString(context, coordinates);
         } else {
           console.error(
             `Unexpected geometry type: ${feature.type} in region map on tile ${[
@@ -179,13 +195,14 @@ export class Renderer {
           );
         }
       }
+      context.restore();
     });
   }
 
   _renderPolygon(
     context: RenderingContext2D,
     coordinates: Point[][],
-    extentFactor: number,
+    // extentFactor: number,
     shouldRenderLine: boolean,
   ) {
     context.beginPath();
@@ -208,12 +225,12 @@ export class Renderer {
       }
 
       let pos = v[0];
-      context.moveTo(pos.x * extentFactor, pos.y * extentFactor);
+      context.moveTo(pos.x, pos.y);
 
       // Polygon ring points
       for (let j = 1; j < v.length; j++) {
         pos = v[j];
-        context.lineTo(pos.x * extentFactor, pos.y * extentFactor);
+        context.lineTo(pos.x, pos.y);
       }
       verticesLength += v.length;
     }
@@ -221,12 +238,16 @@ export class Renderer {
     if (verticesLength > 0) draw();
   }
 
-  _renderPoint(context: RenderingContext2D, coordinates: Point[][], extentFactor: number) {
+  _renderPoint(
+    context: RenderingContext2D,
+    coordinates: Point[][],
+    // extentFactor: number
+  ) {
     context.beginPath();
 
     for (let i2 = 0; i2 < coordinates.length; i2++) {
       const pos = coordinates[i2][0];
-      const [x, y] = [pos.x * extentFactor, pos.y * extentFactor];
+      const [x, y] = [pos.x, pos.y];
 
       // Handle lineWidth as radius
       const radius = context.lineWidth;
@@ -237,16 +258,20 @@ export class Renderer {
     }
   }
 
-  _renderLineString(context: RenderingContext2D, coordinates: Point[][], extentFactor: number) {
+  _renderLineString(
+    context: RenderingContext2D,
+    coordinates: Point[][],
+    // extentFactor: number
+  ) {
     context.beginPath();
 
     for (let i2 = 0; i2 < coordinates.length; i2++) {
       let pos = coordinates[i2][0];
-      context.moveTo(pos.x * extentFactor, pos.y * extentFactor);
+      context.moveTo(pos.x, pos.y);
 
       for (let j = 1; j < coordinates[i2].length; j++) {
         pos = coordinates[i2][j];
-        context.lineTo(pos.x * extentFactor, pos.y * extentFactor);
+        context.lineTo(pos.x, pos.y);
       }
     }
     context.stroke();
