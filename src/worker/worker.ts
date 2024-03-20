@@ -50,7 +50,7 @@ const renderTile = async ({
 
   const tileRenderer = await getTileRenderer(renderOptions);
   await tileRenderer.render(
-    context,
+    canvas,
     requestedTile,
     scaleFactor,
     maximumLevel,
