@@ -9,7 +9,7 @@ import { evalStyle } from "./style";
 import { Layer, LayerSimple } from "./styleEvaluator/types";
 import { isFeatureClicked } from "./terria";
 import { TileCoordinates, URLTemplate, ImageryProviderOption, Bbox } from "./types";
-import { dataTileForDisplayTile } from "./utils";
+import { dataTileForDisplayTile, transformGeom } from "./utils";
 
 const MAX_VERTICES_PER_CALL = 5400;
 
@@ -43,7 +43,7 @@ export type RendererOption = Pick<ImageryProviderOption, "urlTemplate"> & {
 export type RenderingContext2D = CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D;
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
-export class Renderer {
+export class Renderer<Canvas extends HTMLCanvasElement | OffscreenCanvas> {
   private _urlTemplate: URLTemplate;
   private _parseTile: (url?: string) => Promise<VectorTile | undefined>;
   private readonly _tilingScheme: WebMercatorTilingScheme;
@@ -65,12 +65,14 @@ export class Renderer {
   }
 
   async render(
-    context: RenderingContext2D,
+    canvas: Canvas,
     requestedTile: TileCoordinates,
     scaleFactor: number,
     maximumLevel: number,
     currentLayer?: Layer,
   ) {
+    const context = canvas.getContext("2d") as CanvasRenderingContext2D;
+    context.scale(canvas.width / this.internalSize, canvas.height / this.internalSize);
     const bbox = {
       minX: this.internalSize * requestedTile.x - this.paddingSize,
       minY: this.internalSize * requestedTile.y - this.paddingSize,
@@ -106,13 +108,12 @@ export class Renderer {
     origin: Point,
     currentLayer?: Layer,
   ): Promise<void> {
-
-    const { po } = dataTileForDisplayTile(requestedTile, maximumLevel);
+    const { dataTile, po, ps } = dataTileForDisplayTile(requestedTile, maximumLevel);
 
     console.log("requestedTile: ", requestedTile);
-    // console.log("dataTile: ", dataTile);
+    console.log("dataTile: ", dataTile);
 
-    const url = buildURLWithTileCoordinates(this._urlTemplate, requestedTile);
+    const url = buildURLWithTileCoordinates(this._urlTemplate, dataTile);
     const tile = await this._cachedTile(url);
     const layerNames = layerName.split(/, */).filter(Boolean);
     const layers = layerNames.map(ln => tile?.layers[ln]);
@@ -128,7 +129,6 @@ export class Renderer {
     // Improve resolution
     context.save();
     context.miterLimit = 2;
-    scaleFactor;
     // context.setTransform(
     //   (this._tileWidth * scaleFactor) / CESIUM_CANVAS_SIZE,
     //   0,
@@ -149,23 +149,21 @@ export class Renderer {
       for (let i = 0; i < layer.length; i++) {
         const feature = layer.feature(i);
 
-        const coordinates = feature.loadGeometry();
-        // const fbox = feature.bbox?.();
-        // if (
-        //   fbox &&
-        //   (fbox[2] * ps + origin.x < bbox.minX ||
-        //     fbox[0] * ps + origin.x > bbox.maxX ||
-        //     fbox[1] * ps + origin.y > bbox.maxY ||
-        //     fbox[3] * ps + origin.y < bbox.minY)
-        // ) {
-        //   continue;
-        // }
+        let coordinates = feature.loadGeometry();
+        const fbox = feature.bbox?.();
+        if (
+          fbox &&
+          (fbox[2] * ps + origin.x < bbox.minX ||
+            fbox[0] * ps + origin.x > bbox.maxX ||
+            fbox[1] * ps + origin.y > bbox.maxY ||
+            fbox[3] * ps + origin.y < bbox.minY)
+        ) {
+          continue;
+        }
 
-        // // console.log("scale: ", scale);
-
-        // if (ps !== 1) {
-        //   coordinates = transformGeom(coordinates, ps, new Point(0, 0));
-        // }
+        if (ps !== 1) {
+          coordinates = transformGeom(coordinates, ps, new Point(0, 0));
+        }
 
         const style = evalStyle(feature, requestedTile, currentLayer);
         if (!style) {
@@ -202,16 +200,16 @@ export class Renderer {
     // extentFactor: number,
     shouldRenderLine: boolean,
   ) {
-    context.beginPath();
-
     const draw = () => {
+      context.fill();
       if (shouldRenderLine) {
         context.stroke();
       }
-      context.fill();
     };
 
     let verticesLength = 0;
+    context.beginPath();
+
     // Polygon rings
     for (let i2 = 0; i2 < coordinates.length; i2++) {
       const v = coordinates[i2];

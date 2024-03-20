@@ -5,7 +5,7 @@ import { Renderer, RendererOption } from "../renderer";
 import { LayerSimple } from "../styleEvaluator/types";
 import { TileCoordinates } from "../types";
 
-const tileRenderers = new Map<string, Renderer>();
+const tileRenderers = new Map<string, Renderer<OffscreenCanvas>>();
 
 function createTileRenderKey({ urlTemplate }: RendererOption): string {
   return `${urlTemplate}`;
@@ -26,7 +26,7 @@ export interface PickTileParams extends RendererOption {
   currentLayer?: LayerSimple;
 }
 
-async function getTileRenderer(options: RendererOption): Promise<Renderer> {
+async function getTileRenderer(options: RendererOption): Promise<Renderer<OffscreenCanvas>> {
   const key = createTileRenderKey(options);
   let tileRenderer;
   if (tileRenderer == null) {
@@ -50,7 +50,7 @@ const renderTile = async ({
 
   const tileRenderer = await getTileRenderer(renderOptions);
   await tileRenderer.render(
-    context,
+    canvas,
     requestedTile,
     scaleFactor,
     maximumLevel,

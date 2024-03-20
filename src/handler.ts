@@ -4,7 +4,7 @@ import { LayerSimple } from "./styleEvaluator/types";
 import { TileCoordinates, URLTemplate } from "./types";
 
 export class RenderMainHandler extends RenderHandler {
-  renderer?: Renderer;
+  renderer?: Renderer<HTMLCanvasElement>;
   constructor() {
     super();
   }
@@ -27,7 +27,7 @@ export class RenderMainHandler extends RenderHandler {
       return;
     }
     await this.renderer?.render(
-      ctx,
+      options.canvas,
       options.requestedTile,
       options.scaleFactor,
       options.maximumLevel,
