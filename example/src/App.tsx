@@ -1,4 +1,4 @@
-import { Cartesian3, Color } from "cesium";
+import { Cartesian3, Color } from "@cesium/engine";
 import { Viewer, Entity } from "resium";
 
 import { Imagery } from "./Imagery";

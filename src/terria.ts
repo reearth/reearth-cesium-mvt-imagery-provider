@@ -3,8 +3,8 @@
  * https://github.com/TerriaJS/terriajs/blob/d639269644ab7f6aa9f1670fd20c77dfc63f504f/lib/Map/ImageryProvider/MapboxVectorTileImageryProvider.ts#L578-L635
  */
 
+import { WindingOrder } from "@cesium/engine";
 import Point from "@mapbox/point-geometry";
-import { WindingOrder } from "cesium";
 
 function isExteriorRing(ring: Point[]) {
   // Normally an exterior ring would be clockwise but because these coordinates are in "canvas space" the ys are inverted

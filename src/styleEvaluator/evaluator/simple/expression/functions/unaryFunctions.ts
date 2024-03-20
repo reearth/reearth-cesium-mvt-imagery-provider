@@ -1,4 +1,4 @@
-import { Math as CesiumMath } from "cesium";
+import { Math as CesiumMath } from "@cesium/engine";
 
 type UnaryFunction = (call: string, left: number) => number;
 

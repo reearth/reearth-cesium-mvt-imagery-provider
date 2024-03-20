@@ -95,6 +95,8 @@ export function dataTileForDisplayTile(
   maximumLevel = 24,
   levelDiff = 2,
 ) {
+  console.log("displayTile: ", displayTile);
+  console.log("maximumLevel: ", maximumLevel);
   let dataTile: TileCoordinates;
   let scale = 1;
   let dim = 1024;

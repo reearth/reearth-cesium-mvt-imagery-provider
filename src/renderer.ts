@@ -1,7 +1,11 @@
-import { WebMercatorTilingScheme } from "@cesium/engine";
+import {
+  WebMercatorTilingScheme,
+  Cartesian2,
+  Cartographic,
+  ImageryLayerFeatureInfo,
+} from "@cesium/engine";
 import Point from "@mapbox/point-geometry";
 import { VectorTile, VectorTileFeature, VectorTileLayer } from "@mapbox/vector-tile";
-import { Cartesian2, Cartographic, ImageryLayerFeatureInfo } from "cesium";
 import Pbf from "pbf";
 
 import { onSelectFeature } from "./featureSelect";
@@ -165,7 +169,7 @@ export class Renderer<Canvas extends HTMLCanvasElement | OffscreenCanvas> {
           coordinates = transformGeom(coordinates, ps, new Point(0, 0));
         }
 
-        const style = evalStyle(feature, requestedTile, currentLayer);
+        const style = evalStyle(feature, dataTile, currentLayer);
         if (!style) {
           continue;
         }

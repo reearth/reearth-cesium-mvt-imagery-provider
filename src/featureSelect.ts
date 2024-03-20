@@ -1,6 +1,6 @@
+import { ImageryLayerFeatureInfo } from "@cesium/engine";
 import { VectorTileFeature } from "@mapbox/vector-tile";
 import { LineString, Polygon, Point } from "@turf/turf";
-import { ImageryLayerFeatureInfo } from "cesium";
 
 import { evalFeature } from "./styleEvaluator/evaluator";
 import { Feature, Geometry, LayerSimple } from "./styleEvaluator/types";

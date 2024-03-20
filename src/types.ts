@@ -1,5 +1,5 @@
+import { Rectangle } from "@cesium/engine";
 import { VectorTileFeature } from "@mapbox/vector-tile";
-import { Rectangle } from "cesium";
 
 import { LayerSimple } from "./styleEvaluator/types";
 

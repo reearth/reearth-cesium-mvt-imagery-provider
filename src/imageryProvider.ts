@@ -8,7 +8,7 @@ import {
   Event as CesiumEvent,
   Credit,
   ImageryLayerFeatureInfo,
-} from "cesium";
+} from "@cesium/engine";
 import { isEqual } from "lodash-es";
 import { LRUCache } from "lru-cache";
 
