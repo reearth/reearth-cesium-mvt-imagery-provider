@@ -1,4 +1,5 @@
 import { VectorTileFeature } from "@mapbox/vector-tile";
+import { Rectangle } from "cesium";
 
 import { LayerSimple } from "./styleEvaluator/types";
 
@@ -29,6 +30,7 @@ export type ImageryProviderOption = {
   resolution?: number;
   worker?: boolean;
   layer?: LayerSimple;
+  rectangle: Rectangle;
 };
 
 export const CESIUM_CANVAS_SIZE = 256;

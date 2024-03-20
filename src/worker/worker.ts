@@ -7,8 +7,8 @@ import { TileCoordinates } from "../types";
 
 const tileRenderers = new Map<string, Renderer<OffscreenCanvas>>();
 
-function createTileRenderKey({ urlTemplate }: RendererOption): string {
-  return `${urlTemplate}`;
+function createTileRenderKey({ urlTemplate, maximumLevel }: RendererOption): string {
+  return `${urlTemplate}:${maximumLevel}`;
 }
 
 export interface RenderTileParams extends RendererOption {
@@ -50,7 +50,7 @@ const renderTile = async ({
 
   const tileRenderer = await getTileRenderer(renderOptions);
   await tileRenderer.render(
-    canvas,
+    context,
     requestedTile,
     scaleFactor,
     maximumLevel,

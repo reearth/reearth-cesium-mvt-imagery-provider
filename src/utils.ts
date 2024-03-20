@@ -92,7 +92,7 @@ export const generateID = (id: string) => {
 
 export function dataTileForDisplayTile(
   displayTile: TileCoordinates,
-  maximumLevel: number,
+  maximumLevel = 24,
   levelDiff = 2,
 ) {
   let dataTile: TileCoordinates;

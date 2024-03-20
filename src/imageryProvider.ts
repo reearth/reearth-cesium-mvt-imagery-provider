@@ -54,7 +54,7 @@ export class MVTImageryProvider implements ImageryProviderTrait {
 
   constructor(options: ImageryProviderOption) {
     this._minimumLevel = options.minimumLevel ?? 0;
-    this._maximumLevel = options.maximumLevel ?? Infinity;
+    this._maximumLevel = options.maximumLevel ?? 24;
     this._credit = options.credit;
     this._resolution = options.resolution ?? 5;
 
@@ -64,7 +64,11 @@ export class MVTImageryProvider implements ImageryProviderTrait {
     this._tileWidth = CESIUM_CANVAS_SIZE;
     this._tileHeight = CESIUM_CANVAS_SIZE;
 
-    this._rectangle = this._tilingScheme.rectangle;
+    this._rectangle =
+      options.rectangle != null
+        ? Rectangle.intersection(options.rectangle, this.tilingScheme.rectangle) ??
+          this.tilingScheme.rectangle
+        : this.tilingScheme.rectangle;
 
     this._handler = options.worker ? new RenderWorkerHandler() : new RenderMainHandler();
     this._ready = true;
@@ -184,6 +188,7 @@ export class MVTImageryProvider implements ImageryProviderTrait {
     level: number,
     _request?: Request | undefined,
   ): Promise<ImageryTypes> | undefined {
+    console.log("x: ", x, "y: ", y, "level: ", level);
     const currentLayer = this._currentLayer;
 
     if (!isEqual(layerUsed, currentLayer)) {

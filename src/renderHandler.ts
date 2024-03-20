@@ -10,7 +10,7 @@ export abstract class RenderHandler {
     scaleFactor: number;
     urlTemplate: URLTemplate;
     layerNames: string[];
-    maximumLevel: number;
+    maximumLevel?: number;
     currentLayer?: LayerSimple;
   }): Promise<void>;
   abstract dispose(): void;

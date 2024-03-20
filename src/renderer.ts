@@ -36,7 +36,7 @@ const fetchResourceAsArrayBuffer = (url?: string) => {
     ?.catch(() => {});
 };
 
-export type RendererOption = Pick<ImageryProviderOption, "urlTemplate"> & {
+export type RendererOption = Pick<ImageryProviderOption, "urlTemplate" | "maximumLevel"> & {
   layerNames: string[];
 };
 
@@ -68,7 +68,7 @@ export class Renderer<Canvas extends HTMLCanvasElement | OffscreenCanvas> {
     canvas: Canvas,
     requestedTile: TileCoordinates,
     scaleFactor: number,
-    maximumLevel: number,
+    maximumLevel?: number,
     currentLayer?: Layer,
   ) {
     const context = canvas.getContext("2d") as CanvasRenderingContext2D;
@@ -89,9 +89,9 @@ export class Renderer<Canvas extends HTMLCanvasElement | OffscreenCanvas> {
           requestedTile,
           n,
           scaleFactor,
-          maximumLevel,
           bbox,
           o,
+          maximumLevel,
           currentLayer,
         ),
       ),
@@ -103,9 +103,9 @@ export class Renderer<Canvas extends HTMLCanvasElement | OffscreenCanvas> {
     requestedTile: TileCoordinates,
     layerName: string,
     scaleFactor: number,
-    maximumLevel: number,
     bbox: Bbox,
     origin: Point,
+    maximumLevel?: number,
     currentLayer?: Layer,
   ): Promise<void> {
     const { dataTile, po, ps } = dataTileForDisplayTile(requestedTile, maximumLevel);
@@ -416,10 +416,15 @@ const tileToCacheable = (v: VectorTile | undefined) => {
   return { layers };
 };
 
-const buildURLWithTileCoordinates = (template: URLTemplate, tile: TileCoordinates) => {
+const buildURLWithTileCoordinates = (
+  template: URLTemplate,
+  tile: TileCoordinates,
+  _maximumLevel = 24,
+) => {
   const decodedTemplate = decodeURIComponent(template);
-  const z = decodedTemplate.replace("{z}", String(tile.level));
+  const z = decodedTemplate.replace("{z}", tile.level <= 15 ? String(tile.level) : String(15));
   const x = z.replace("{x}", String(tile.x));
   const y = x.replace("{y}", String(tile.y));
+  console.log("y: ", y);
   return y;
 };
