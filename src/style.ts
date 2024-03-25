@@ -1,6 +1,6 @@
-import { VectorTileFeature } from "@mapbox/vector-tile";
 import { LineString, Point, Polygon } from "@turf/turf";
 import { LRUCache } from "lru-cache";
+import { GeomType, Feature as PFeature } from "protomaps";
 
 import { evalFeature } from "./styleEvaluator/evaluator";
 import { ComputedFeature, Feature, Geometry, Layer } from "./styleEvaluator/types";
@@ -9,22 +9,22 @@ import { Style, TileCoordinates } from "./types";
 const cachedStyleMap = new LRUCache<string, any>({ max: 1000 });
 
 export const evalStyle = (
-  mvtFeature: VectorTileFeature,
+  mvtFeature: PFeature,
   tile: TileCoordinates,
   layer?: Layer,
 ): Style | void => {
-  const styleCacheKey = JSON.stringify(mvtFeature.properties);
+  const styleCacheKey = JSON.stringify(mvtFeature.props);
   const cachedStyle = cachedStyleMap.get(styleCacheKey);
   if (cachedStyle) {
     return cachedStyle;
   }
   const appearanceType = (() => {
-    switch (VectorTileFeature.types[mvtFeature.type]) {
-      case "Polygon":
+    switch (mvtFeature.geomType) {
+      case GeomType.Polygon:
         return "polygon";
-      case "LineString":
+      case GeomType.Line:
         return "polyline";
-      case "Point":
+      case GeomType.Point:
         return "marker";
       default:
         return;
@@ -86,11 +86,11 @@ export const evalStyle = (
 
 const makeFeature = (
   id: string,
-  feature: VectorTileFeature,
+  feature: PFeature,
   tile: TileCoordinates,
   appearance: "polygon" | "polyline" | "marker",
 ): Feature => {
-  const geometry = feature.loadGeometry();
+  const geometry = feature.geom;
   const [type, coordinates] = (() => {
     if (appearance === "polygon") {
       return [
@@ -120,7 +120,7 @@ const makeFeature = (
       type,
       coordinates,
     } as Geometry,
-    properties: feature.properties,
+    properties: feature.props,
     range: {
       x: tile.x,
       y: tile.y,

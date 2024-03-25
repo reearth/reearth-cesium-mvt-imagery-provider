@@ -7,13 +7,14 @@ import {
 import Point from "@mapbox/point-geometry";
 import { VectorTile, VectorTileFeature, VectorTileLayer } from "@mapbox/vector-tile";
 import Pbf from "pbf";
+import { GeomType, PolygonSymbolizer, TileCache, View, ZxySource } from "protomaps";
 
 import { onSelectFeature } from "./featureSelect";
 import { evalStyle } from "./style";
 import { Layer, LayerSimple } from "./styleEvaluator/types";
 import { isFeatureClicked } from "./terria";
 import { TileCoordinates, URLTemplate, ImageryProviderOption, Bbox } from "./types";
-import { dataTileForDisplayTile, transformGeom } from "./utils";
+import { transformGeom } from "./utils";
 
 const MAX_VERTICES_PER_CALL = 5400;
 
@@ -112,15 +113,20 @@ export class Renderer<Canvas extends HTMLCanvasElement | OffscreenCanvas> {
     maximumLevel?: number,
     currentLayer?: Layer,
   ): Promise<void> {
-    const { dataTile, po, ps } = dataTileForDisplayTile(requestedTile, maximumLevel);
+    const source = new ZxySource(this._urlTemplate, false);
+    const cache = new TileCache(source, 1024);
+    const view = new View(cache, maximumLevel ?? 24, 2);
 
-    console.log("requestedTile: ", requestedTile);
-    console.log("dataTile: ", dataTile);
+    const preparedTile = await view.getDisplayTile({
+      x: requestedTile.x,
+      y: requestedTile.y,
+      z: requestedTile.level,
+    });
 
-    const url = buildURLWithTileCoordinates(this._urlTemplate, dataTile);
-    const tile = await this._cachedTile(url);
+    // const url = buildURLWithTileCoordinates(this._urlTemplate, dataTile);
+    // const tile = await this._cachedTile(url);
     const layerNames = layerName.split(/, */).filter(Boolean);
-    const layers = layerNames.map(ln => tile?.layers[ln]);
+    const layers = layerNames.map(ln => preparedTile.data.get(ln));
 
     if (!layers) {
       return;
@@ -142,25 +148,32 @@ export class Renderer<Canvas extends HTMLCanvasElement | OffscreenCanvas> {
     //   0,
     // );
 
+    const po = preparedTile.origin;
+    const ps = preparedTile.scale;
+    const data_tile = {
+      x: preparedTile.data_tile.x,
+      y: preparedTile.data_tile.y,
+      level: preparedTile.data_tile.z,
+    };
+
+    context.save();
+
     layers.forEach(layer => {
       if (!layer) return;
       // Vector tile works with extent [0, 4095], but canvas is only [0,255]
       // const extentFactor = CESIUM_CANVAS_SIZE / layer.extent;
 
       context.save();
-      context.translate(origin.x - po.x, origin.y - po.y);
+      context.translate(po.x - origin.x, po.y - origin.y);
 
-      for (let i = 0; i < layer.length; i++) {
-        const feature = layer.feature(i);
-
-        let coordinates = feature.loadGeometry();
-        const fbox = feature.bbox?.();
+      for (const feature of layer) {
+        let coordinates = feature.geom;
+        const fbox = feature.bbox;
         if (
-          fbox &&
-          (fbox[2] * ps + origin.x < bbox.minX ||
-            fbox[0] * ps + origin.x > bbox.maxX ||
-            fbox[1] * ps + origin.y > bbox.maxY ||
-            fbox[3] * ps + origin.y < bbox.minY)
+          fbox.maxX * ps + po.x < bbox.minX ||
+          fbox.minX * ps + po.x > bbox.maxX ||
+          fbox.minY * ps + po.y > bbox.maxY ||
+          fbox.maxY * ps + po.y < bbox.minY
         ) {
           continue;
         }
@@ -169,24 +182,29 @@ export class Renderer<Canvas extends HTMLCanvasElement | OffscreenCanvas> {
           coordinates = transformGeom(coordinates, ps, new Point(0, 0));
         }
 
-        const style = evalStyle(feature, dataTile, currentLayer);
+        const style = evalStyle(feature, data_tile, currentLayer);
         if (!style) {
           continue;
         }
-        context.fillStyle = style.fillStyle ?? context.fillStyle;
-        context.strokeStyle = style.strokeStyle ?? context.strokeStyle;
-        context.lineWidth = style.lineWidth ?? context.lineWidth;
-        context.lineJoin = style.lineJoin ?? context.lineJoin;
+        console.log("style: ", style);
+        // context.fillStyle = style.fillStyle ?? context.fillStyle;
+        // context.strokeStyle = style.strokeStyle ?? context.strokeStyle;
+        // context.lineWidth = style.lineWidth ?? context.lineWidth;
+        // context.lineJoin = style.lineJoin ?? context.lineJoin;
 
-        if (VectorTileFeature.types[feature.type] === "Polygon") {
-          this._renderPolygon(context, coordinates, (style.lineWidth ?? 1) > 0);
-        } else if (VectorTileFeature.types[feature.type] === "Point") {
+        if (feature.geomType === GeomType.Polygon) {
+          new PolygonSymbolizer({
+            fill: style.fillStyle,
+            stroke: style.strokeStyle,
+            per_feature: true,
+          }).draw(context as CanvasRenderingContext2D, coordinates, preparedTile.z, feature);
+        } else if (feature.geomType === GeomType.Point) {
           this._renderPoint(context, coordinates);
-        } else if (VectorTileFeature.types[feature.type] === "LineString") {
+        } else if (feature.geomType === GeomType.Line) {
           this._renderLineString(context, coordinates);
         } else {
           console.error(
-            `Unexpected geometry type: ${feature.type} in region map on tile ${[
+            `Unexpected geometry type: ${feature.geomType} in region map on tile ${[
               requestedTile.level,
               requestedTile.x,
               requestedTile.y,
