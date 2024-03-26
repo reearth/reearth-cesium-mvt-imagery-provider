@@ -9,6 +9,7 @@ import type {
 
 import type { AppearanceTypes, LayerAppearanceTypes } from "./appearance";
 import type { Events } from "./events";
+import { Spacing } from "./value";
 
 export * from "./appearance";
 export * from "./value";
@@ -55,7 +56,7 @@ export type NaiveLayerGroup = Omit<LayerGroup, "id" | "children" | "infobox"> & 
   children?: NaiveLayer[];
 };
 export type NaiveInfobox = Omit<Infobox, "id" | "blocks"> & { blocks?: NaiveBlock[] };
-export type NaiveBlock<P = any> = Omit<Block<P>, "id">;
+export type NaiveBlock<P = any> = Omit<InfoboxBlock<P>, "id">;
 
 export type SelectedFeatureInfo = {
   feature?: ComputedFeature;
@@ -152,7 +153,6 @@ export type ComputedLayer = {
 
 export type ComputedFeature = CommonFeature<"computedFeature"> & Partial<AppearanceTypes>;
 
-
 export type LegacyLayer<P = any, IBP = any> = {
   id: string;
   type?: string;
@@ -172,33 +172,6 @@ export type Tag = {
   id: string;
   label: string;
   tags?: Tag[];
-};
-
-export type Infobox<BP = any> = {
-  property?: InfoboxProperty;
-  blocks?: Block<BP>[];
-};
-
-export type InfoboxProperty = {
-  default?: {
-    showTitle?: boolean;
-    title?: string;
-    height?: number;
-    heightType?: "auto" | "manual";
-    infoboxPaddingTop?: number;
-    infoboxPaddingBottom?: number;
-    infoboxPaddingLeft?: number;
-    infoboxPaddingRight?: number;
-    size?: "small" | "medium" | "large";
-    position?: "right" | "middle" | "left";
-    typography?: Typography;
-    bgcolor?: string;
-    outlineColor?: string;
-    outlineWidth?: number;
-    useMask?: boolean;
-    defaultContent?: "description" | "attributes";
-    unselectOnClose?: boolean;
-  };
 };
 
 export type Block<P = any> = {
@@ -258,4 +231,47 @@ export type LegacyCluster = {
     clusterImageWidth?: number;
   };
   layers?: { layer?: string }[];
+};
+
+export type Infobox<BP = any> = {
+  featureId?: string;
+  property?: InfoboxProperty;
+  blocks?: InfoboxBlock<BP>[];
+};
+
+export type InfoboxProperty = {
+  default?: {
+    enabled?: PropertyItem<boolean>;
+    position?: PropertyItem<"right" | "left">;
+    padding?: PropertyItem<Spacing>;
+    gap?: PropertyItem<number>;
+  };
+  // for compat
+  defaultContent?: "description" | "attributes";
+};
+
+export type InfoboxBlock<P = any> = {
+  id: string;
+  name?: string;
+  pluginId?: string;
+  extensionId?: string;
+  property?: P;
+  propertyId?: string;
+};
+
+export type InfoboxBlockProps<P = any> = {
+  block?: InfoboxBlock<P>;
+  layer?: Layer;
+  onClick?: () => void;
+};
+
+export type PropertyItem<T> = {
+  type?: string;
+  ui?: string;
+  title?: string;
+  description?: string;
+  value?: T;
+  min?: number;
+  max?: number;
+  choices?: { [key: string]: string }[];
 };
