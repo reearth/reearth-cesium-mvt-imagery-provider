@@ -12,13 +12,11 @@ import {
 import { isEqual } from "lodash-es";
 import { LRUCache } from "lru-cache";
 
-import { RenderMainHandler } from "./handler";
 import { Renderer } from "./renderer";
-import { RenderHandler } from "./renderHandler";
 import { LayerSimple } from "./styleEvaluator/types";
 import { CESIUM_CANVAS_SIZE, ImageryProviderOption, TileCoordinates, URLTemplate } from "./types";
-import { RenderWorkerHandler } from "./worker/handler";
-import { canQueue } from "./worker/workerPool";
+import { renderWorker } from "./workerHandler";
+import { canQueue, destroy } from "./workerPool";
 
 type ImageryProviderTrait = ImageryProvider;
 
@@ -45,7 +43,6 @@ export class MVTImageryProvider implements ImageryProviderTrait {
   private readonly _ready: boolean;
   private readonly _readyPromise: Promise<boolean> = Promise.resolve(true);
   private readonly _errorEvent = new CesiumEvent();
-  private readonly _handler: RenderHandler;
   private readonly _currentLayer?: LayerSimple;
   private readonly _useWorker?: boolean;
 
@@ -54,9 +51,9 @@ export class MVTImageryProvider implements ImageryProviderTrait {
 
   constructor(options: ImageryProviderOption) {
     this._minimumLevel = options.minimumLevel ?? 0;
-    this._maximumLevel = options.maximumLevel ?? Infinity;
+    this._maximumLevel = options.maximumLevel ?? 24;
     this._credit = options.credit;
-    this._resolution = options.resolution ?? 5;
+    this._resolution = options.resolution ?? 57;
 
     this._tilingScheme = new WebMercatorTilingScheme();
 
@@ -66,18 +63,10 @@ export class MVTImageryProvider implements ImageryProviderTrait {
 
     this._rectangle = this._tilingScheme.rectangle;
 
-    this._handler = options.worker ? new RenderWorkerHandler() : new RenderMainHandler();
     this._ready = true;
 
     this._urlTemplate = options.urlTemplate;
     this._layerNames = options.layerName.split(/, */).filter(Boolean);
-
-    this._readyPromise = this._handler
-      .init({
-        urlTemplate: options.urlTemplate,
-        layerNames: options.layerName.split(/, */).filter(Boolean),
-      })
-      .then(() => true);
     this._currentLayer = options.layer;
     this._useWorker = options.worker ?? false;
   }
@@ -168,7 +157,7 @@ export class MVTImageryProvider implements ImageryProviderTrait {
     const currentLayer = this._currentLayer;
 
     if (!isEqual(layerUsed, currentLayer)) {
-      this.dispose();
+      destroy();
     }
     layerUsed = currentLayer;
     if (
@@ -196,33 +185,32 @@ export class MVTImageryProvider implements ImageryProviderTrait {
     canvas.height = this._tileHeight * scaleFactor;
     const urlTemplate = this._urlTemplate;
     const layerNames = this._layerNames;
+    const maximumLevel = this._maximumLevel;
 
-    this._useWorker ?? ++this.taskCount;
+    ++this.taskCount;
 
-    return this.readyPromise.then(() => {
-      return this._handler
-        .render({
-          canvas,
-          requestedTile,
-          scaleFactor,
-          urlTemplate,
-          layerNames,
-          currentLayer,
-        })
-        .then(() => {
-          this.tileCache?.set(cacheKey, canvas);
+    return renderWorker({
+      canvas,
+      requestedTile,
+      scaleFactor,
+      urlTemplate,
+      layerNames,
+      maximumLevel,
+      currentLayer,
+    })
+      .then(() => {
+        this.tileCache?.set(cacheKey, canvas);
+        return canvas;
+      })
+      .catch(error => {
+        if (error instanceof Error && error.message.startsWith("Unimplemented type")) {
           return canvas;
-        })
-        .catch(error => {
-          if (error instanceof Error && error.message.startsWith("Unimplemented type")) {
-            return canvas;
-          }
-          throw error;
-        })
-        .finally(() => {
-          this._useWorker ?? --this.taskCount;
-        });
-    });
+        }
+        throw error;
+      })
+      .finally(() => {
+        --this.taskCount;
+      });
   }
 
   async pickFeatures(
@@ -250,9 +238,5 @@ export class MVTImageryProvider implements ImageryProviderTrait {
         currentLayer,
       )) ?? []
     );
-  }
-
-  dispose() {
-    this._handler.dispose();
   }
 }

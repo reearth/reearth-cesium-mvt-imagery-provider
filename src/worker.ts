@@ -1,14 +1,14 @@
 import { type TransferDescriptor } from "threads";
 import { expose } from "threads/worker";
 
-import { Renderer, RendererOption } from "../renderer";
-import { LayerSimple } from "../styleEvaluator/types";
-import { TileCoordinates } from "../types";
+import { Renderer, RendererOption } from "./renderer";
+import { LayerSimple } from "./styleEvaluator/types";
+import { TileCoordinates } from "./types";
 
 const tileRenderers = new Map<string, Renderer>();
 
-function createTileRenderKey({ urlTemplate }: RendererOption): string {
-  return `${urlTemplate}`;
+function createTileRenderKey({ urlTemplate, maximumLevel }: RendererOption): string {
+  return `${urlTemplate}:${maximumLevel}`;
 }
 
 export interface RenderTileParams extends RendererOption {

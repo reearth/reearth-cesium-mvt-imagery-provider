@@ -89,3 +89,15 @@ export const generateID = (id: string) => {
 
   return hash.toString(16);
 };
+
+export const transformGeom = (geom: Array<Array<Point>>, scale: number, translate: Point) => {
+  const retval = [];
+  for (const arr of geom) {
+    const loop = [];
+    for (const coord of arr) {
+      loop.push(coord.clone().mult(scale).add(translate));
+    }
+    retval.push(loop);
+  }
+  return retval;
+};

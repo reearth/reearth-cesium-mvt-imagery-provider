@@ -12,14 +12,7 @@ let workerPool: WorkerPool | undefined;
 function get(): WorkerPool {
   if (workerPool == null) {
     workerPool = Pool(async () => await spawn<RendererWorker>(new WorkerBlob()), {
-      // TODO: Make configurable
-      // Increasing this up to navigator.hardwareConcurrency technically
-      // speeds up rendering, but that affects the performance of the main
-      // thread and feels slower.
-      // Assume that the number of concurrency is virtual, like by hyper
-      // threading, then considering the number of workers created by Cesium,
-      // the number of hardware concurrency divided by 4 might fit here.
-      size: Math.ceil(navigator.hardwareConcurrency / 2),
+      size: Math.ceil(navigator.hardwareConcurrency / 4),
     }) as unknown as WorkerPool;
   }
   return workerPool;
