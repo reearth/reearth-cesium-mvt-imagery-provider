@@ -2,6 +2,7 @@ import { WebMercatorTilingScheme } from "@cesium/engine";
 import Point from "@mapbox/point-geometry";
 import { VectorTile, VectorTileFeature, VectorTileLayer } from "@mapbox/vector-tile";
 import { Cartesian2, Cartographic, ImageryLayerFeatureInfo } from "cesium";
+import { LRUCache } from "lru-cache";
 import Pbf from "pbf";
 
 import { onSelectFeature } from "./featureSelect";
@@ -33,7 +34,7 @@ const fetchResourceAsArrayBuffer = (url?: string) => {
     ?.catch(() => {});
 };
 
-export type RendererOption = Pick<ImageryProviderOption, "urlTemplate"> & {
+export type RendererOption = Pick<ImageryProviderOption, "urlTemplate" | "maximumLevel"> & {
   layerNames: string[];
 };
 
@@ -48,7 +49,7 @@ export class Renderer {
   private readonly _tileWidth: number;
   private readonly _tileHeight: number;
 
-  private readonly _tileCaches = new Map<string, VectorTile>();
+  private readonly _tileCaches: LRUCache<string, VectorTile> | undefined;
 
   constructor(options: RendererOption) {
     this._parseTile = defaultParseTile;
@@ -123,12 +124,14 @@ export class Renderer {
         context.lineWidth = style.lineWidth ?? context.lineWidth;
         context.lineJoin = style.lineJoin ?? context.lineJoin;
 
+        const coordinates = feature.loadGeometry();
+
         if (VectorTileFeature.types[feature.type] === "Polygon") {
-          this._renderPolygon(context, feature, extentFactor, (style.lineWidth ?? 1) > 0);
+          this._renderPolygon(context, coordinates, extentFactor, (style.lineWidth ?? 1) > 0);
         } else if (VectorTileFeature.types[feature.type] === "Point") {
-          this._renderPoint(context, feature, extentFactor);
+          this._renderPoint(context, coordinates, extentFactor);
         } else if (VectorTileFeature.types[feature.type] === "LineString") {
-          this._renderLineString(context, feature, extentFactor);
+          this._renderLineString(context, coordinates, extentFactor);
         } else {
           console.error(
             `Unexpected geometry type: ${feature.type} in region map on tile ${[
@@ -144,14 +147,11 @@ export class Renderer {
 
   _renderPolygon(
     context: RenderingContext2D,
-    feature: VectorTileFeature,
+    coordinates: Point[][],
     extentFactor: number,
     shouldRenderLine: boolean,
   ) {
     context.beginPath();
-
-    const coordinates = feature.loadGeometry();
-
     const draw = () => {
       if (shouldRenderLine) {
         context.stroke();
@@ -183,11 +183,8 @@ export class Renderer {
     if (verticesLength > 0) draw();
   }
 
-  _renderPoint(context: RenderingContext2D, feature: VectorTileFeature, extentFactor: number) {
+  _renderPoint(context: RenderingContext2D, coordinates: Point[][], extentFactor: number) {
     context.beginPath();
-
-    const coordinates = feature.loadGeometry();
-
     for (let i2 = 0; i2 < coordinates.length; i2++) {
       const pos = coordinates[i2][0];
       const [x, y] = [pos.x * extentFactor, pos.y * extentFactor];
@@ -201,11 +198,8 @@ export class Renderer {
     }
   }
 
-  _renderLineString(context: RenderingContext2D, feature: VectorTileFeature, extentFactor: number) {
+  _renderLineString(context: RenderingContext2D, coordinates: Point[][], extentFactor: number) {
     context.beginPath();
-
-    const coordinates = feature.loadGeometry();
-
     for (let i2 = 0; i2 < coordinates.length; i2++) {
       let pos = coordinates[i2][0];
       context.moveTo(pos.x * extentFactor, pos.y * extentFactor);
@@ -322,16 +316,16 @@ export class Renderer {
 
   async _cachedTile(currentUrl: string) {
     if (!currentUrl) return;
-    const cachedTile = this._tileCaches.get(currentUrl);
-    if (cachedTile) {
-      return cachedTile;
+    if (this._tileCaches?.has(currentUrl)) {
+      return this._tileCaches.get(currentUrl);
     }
     const tile = tileToCacheable(await this._parseTile(currentUrl));
-    if (tile) this._tileCaches.set(currentUrl, tile);
+    if (tile) this._tileCaches?.set(currentUrl, tile);
     return tile;
   }
+
   clearCache() {
-    this._tileCaches.clear();
+    this._tileCaches?.clear();
   }
 }
 
@@ -343,12 +337,17 @@ const tileToCacheable = (v: VectorTile | undefined) => {
     const layer = value;
     for (let i = 0; i < layer.length; i++) {
       const feature = layer.feature(i);
-      const geo = feature.loadGeometry();
+      let geo: Point[][] | undefined;
       const bbox = feature.bbox?.();
       const f: VectorTileFeature = {
         ...feature,
         id: feature.id,
-        loadGeometry: () => geo,
+        loadGeometry: () => {
+          if (!geo) {
+            geo = feature.loadGeometry();
+          }
+          return geo;
+        },
         bbox: bbox ? () => bbox : undefined,
         toGeoJSON: feature.toGeoJSON,
       };
@@ -361,7 +360,6 @@ const tileToCacheable = (v: VectorTile | undefined) => {
   }
   return { layers };
 };
-
 const buildURLWithTileCoordinates = (template: URLTemplate, tile: TileCoordinates) => {
   const decodedTemplate = decodeURIComponent(template);
   const z = decodedTemplate.replace("{z}", String(tile.level));
