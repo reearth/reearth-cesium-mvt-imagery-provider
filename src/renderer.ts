@@ -11,29 +11,6 @@ import { Layer, LayerSimple } from "./styleEvaluator/types";
 import { isFeatureClicked } from "./terria";
 import { TileCoordinates, URLTemplate, CESIUM_CANVAS_SIZE, ImageryProviderOption } from "./types";
 
-const defaultParseTile = async (url?: string) => {
-  const ab = await fetchResourceAsArrayBuffer(url);
-  if (!ab) {
-    return;
-  }
-  const tile = parseMVT(ab);
-  return tile;
-};
-
-const parseMVT = (ab?: ArrayBuffer) => {
-  return new VectorTile(new Pbf(ab));
-};
-
-const fetchResourceAsArrayBuffer = (url?: string) => {
-  if (!url) {
-    throw new Error("fetch request is failed because request url is undefined");
-  }
-
-  return fetch(url)
-    .then(r => r.arrayBuffer())
-    ?.catch(() => {});
-};
-
 export type RendererOption = Pick<ImageryProviderOption, "urlTemplate" | "maximumLevel"> & {
   layerNames: string[];
 };
@@ -229,23 +206,37 @@ export class Renderer {
     latitude: number,
     currentLayer?: LayerSimple,
   ) {
-    const tile = await this._cachedTile(url);
-
-    const pf = await Promise.all(
-      this._layerNames.map(async name => {
-        const layer = tile?.layers[name];
-        if (!layer) {
-          return []; // return empty list of features for empty tile
-        }
-        const f = await this._pickFeatures(requestedTile, longitude, latitude, layer, currentLayer);
-        if (f) {
-          return f;
-        }
+    try {
+      const tile = await this._cachedTile(url);
+      if (!tile) {
         return [];
-      }),
-    );
+      }
 
-    return pf.flat();
+      const pf = await Promise.all(
+        this._layerNames.map(async name => {
+          const layer = tile.layers[name];
+          if (!layer) {
+            return [];
+          }
+
+          const f = await this._pickFeatures(
+            requestedTile,
+            longitude,
+            latitude,
+            layer,
+            currentLayer,
+          );
+          if (f) {
+            return f;
+          }
+          return [];
+        }),
+      );
+
+      return pf.flat();
+    } catch {
+      return [];
+    }
   }
 
   async _pickFeatures(
@@ -319,15 +310,52 @@ export class Renderer {
     if (this._tileCaches?.has(currentUrl)) {
       return this._tileCaches.get(currentUrl);
     }
-    const tile = tileToCacheable(await this._parseTile(currentUrl));
-    if (tile) this._tileCaches?.set(currentUrl, tile);
-    return tile;
+    try {
+      const tile = tileToCacheable(await this._parseTile(currentUrl));
+      if (tile) this._tileCaches?.set(currentUrl, tile);
+      return tile;
+    } catch (error) {
+      return;
+    }
   }
 
   clearCache() {
     this._tileCaches?.clear();
   }
 }
+
+const defaultParseTile = async (url?: string) => {
+  try {
+    const ab = await fetchResourceAsArrayBuffer(url);
+    if (!ab) {
+      return;
+    }
+    const tile = parseMVT(ab);
+    return tile;
+  } catch {
+    return;
+  }
+};
+
+const parseMVT = (ab?: ArrayBuffer) => {
+  return new VectorTile(new Pbf(ab));
+};
+
+const fetchResourceAsArrayBuffer = async (url?: string) => {
+  if (!url) {
+    console.error("fetch request failed because request url is undefined");
+    return;
+  }
+  try {
+    const response = await fetch(url);
+    if (!response.ok) {
+      return;
+    }
+    return await response.arrayBuffer();
+  } catch {
+    return;
+  }
+};
 
 const tileToCacheable = (v: VectorTile | undefined) => {
   if (!v) return;
@@ -360,6 +388,7 @@ const tileToCacheable = (v: VectorTile | undefined) => {
   }
   return { layers };
 };
+
 const buildURLWithTileCoordinates = (template: URLTemplate, tile: TileCoordinates) => {
   const decodedTemplate = decodeURIComponent(template);
   const z = decodedTemplate.replace("{z}", String(tile.level));
