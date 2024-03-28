@@ -53,7 +53,7 @@ export class MVTImageryProvider implements ImageryProviderTrait {
     this._minimumLevel = options.minimumLevel ?? 0;
     this._maximumLevel = options.maximumLevel ?? 24;
     this._credit = options.credit;
-    this._resolution = options.resolution ?? 57;
+    this._resolution = options.resolution ?? 10;
 
     this._tilingScheme = new WebMercatorTilingScheme();
 
