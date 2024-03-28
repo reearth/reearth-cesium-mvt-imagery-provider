@@ -11,7 +11,7 @@ export async function renderWorker(options: {
   urlTemplate: URLTemplate;
   layerNames: string[];
   maximumLevel: number;
-  currentLayer?: LayerSimple;
+  currentLayer: LayerSimple;
 }): Promise<void> {
   const { canvas, ...optionsWithoutCanvas } = options;
   const offscreen = canvas.transferControlToOffscreen();
@@ -26,5 +26,5 @@ export async function renderWorker(options: {
         [offscreen],
       ),
     );
-  });
+  }, options.currentLayer?.id);
 }

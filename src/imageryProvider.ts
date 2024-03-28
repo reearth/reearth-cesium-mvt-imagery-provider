@@ -156,14 +156,21 @@ export class MVTImageryProvider implements ImageryProviderTrait {
   ): Promise<ImageryTypes> | undefined {
     const currentLayer = this._currentLayer;
 
-    if (!isEqual(layerUsed, currentLayer)) {
-      destroy();
+    if (!currentLayer) return;
+
+    if (
+      layerUsed &&
+      currentLayer &&
+      !isEqual(layerUsed, currentLayer) &&
+      layerUsed.id === currentLayer.id
+    ) {
+      destroy(layerUsed.id);
     }
     layerUsed = currentLayer;
     if (
       this._useWorker &&
       (this.taskCount >= MVTImageryProvider.maximumTasksPerImagery ||
-        !canQueue(MVTImageryProvider.maximumTasks))
+        !canQueue(currentLayer?.id, MVTImageryProvider.maximumTasks))
     ) {
       return;
     }
