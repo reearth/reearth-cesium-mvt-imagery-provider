@@ -1,18 +1,18 @@
 import { Transfer } from "threads";
 
+import { RendererOption } from "./renderer";
 import { LayerSimple } from "./styleEvaluator/types";
-import { TileCoordinates, URLTemplate } from "./types";
+import { TileCoordinates } from "./types";
 import { queue } from "./workerPool";
 
-export async function renderWorker(options: {
-  canvas: HTMLCanvasElement;
-  requestedTile: TileCoordinates;
-  scaleFactor: number;
-  urlTemplate: URLTemplate;
-  layerNames: string[];
-  maximumLevel: number;
-  currentLayer: LayerSimple;
-}): Promise<void> {
+export async function renderWorker(
+  options: RendererOption & {
+    canvas: HTMLCanvasElement;
+    requestedTile: TileCoordinates;
+    scaleFactor: number;
+    currentLayer: LayerSimple;
+  },
+): Promise<void> {
   const { canvas, ...optionsWithoutCanvas } = options;
   const offscreen = canvas.transferControlToOffscreen();
 

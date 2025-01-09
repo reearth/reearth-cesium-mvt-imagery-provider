@@ -14,7 +14,13 @@ import { LRUCache } from "lru-cache";
 
 import { Renderer } from "./renderer";
 import { LayerSimple } from "./styleEvaluator/types";
-import { CESIUM_CANVAS_SIZE, ImageryProviderOption, TileCoordinates, URLTemplate } from "./types";
+import {
+  CESIUM_CANVAS_SIZE,
+  FeatureHandler,
+  ImageryProviderOption,
+  TileCoordinates,
+  URLTemplate,
+} from "./types";
 import { renderWorker } from "./workerHandler";
 import { canQueue, destroy } from "./workerPool";
 
@@ -49,6 +55,9 @@ export class MVTImageryProvider implements ImageryProviderTrait {
   private readonly _urlTemplate: URLTemplate;
   private readonly _layerNames: string[];
 
+  private _pickPointRadius?: number | FeatureHandler<number>;
+  private _pickLineWidth?: number | FeatureHandler<number>;
+
   constructor(options: ImageryProviderOption) {
     this._minimumLevel = options.minimumLevel ?? 0;
     this._maximumLevel = options.maximumLevel ?? 24;
@@ -69,6 +78,9 @@ export class MVTImageryProvider implements ImageryProviderTrait {
     this._layerNames = options.layerName.split(/, */).filter(Boolean);
     this._currentLayer = options.layer;
     this._useWorker = options.worker ?? false;
+
+    this._pickPointRadius = options.pickPointRadius;
+    this._pickLineWidth = options.pickLineWidth;
   }
 
   get tileWidth() {
@@ -204,6 +216,8 @@ export class MVTImageryProvider implements ImageryProviderTrait {
       layerNames,
       maximumLevel,
       currentLayer,
+      pickPointRadius: this._pickPointRadius,
+      pickLineWidth: this._pickLineWidth,
     })
       .then(() => {
         this.tileCache?.set(cacheKey, canvas);

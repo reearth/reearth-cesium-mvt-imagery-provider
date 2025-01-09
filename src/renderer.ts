@@ -9,9 +9,19 @@ import { onSelectFeature } from "./featureSelect";
 import { evalStyle } from "./style";
 import { Layer, LayerSimple } from "./styleEvaluator/types";
 import { isFeatureClicked } from "./terria";
-import { TileCoordinates, URLTemplate, CESIUM_CANVAS_SIZE, ImageryProviderOption } from "./types";
+import {
+  TileCoordinates,
+  URLTemplate,
+  CESIUM_CANVAS_SIZE,
+  ImageryProviderOption,
+  FeatureHandler,
+} from "./types";
+import { isLineStringClicked, isPointClicked } from "./utils";
 
-export type RendererOption = Pick<ImageryProviderOption, "urlTemplate" | "maximumLevel"> & {
+export type RendererOption = Pick<
+  ImageryProviderOption,
+  "urlTemplate" | "maximumLevel" | "pickLineWidth" | "pickPointRadius"
+> & {
   layerNames: string[];
 };
 
@@ -25,6 +35,8 @@ export class Renderer {
   private readonly _layerNames: string[];
   private readonly _tileWidth: number;
   private readonly _tileHeight: number;
+  private _pickPointRadius: number | FeatureHandler<number>;
+  private _pickLineWidth: number | FeatureHandler<number>;
 
   private readonly _tileCaches: LRUCache<string, VectorTile> | undefined;
 
@@ -35,6 +47,8 @@ export class Renderer {
     this._tileHeight = CESIUM_CANVAS_SIZE;
     this._layerNames = options.layerNames;
     this._tilingScheme = new WebMercatorTilingScheme();
+    this._pickPointRadius = options.pickPointRadius ?? defaultPickPointRadius;
+    this._pickLineWidth = options.pickLineWidth ?? defaultPickLineWidth;
   }
 
   async render(
@@ -278,6 +292,7 @@ export class Renderer {
     const features: ImageryLayerFeatureInfo[] = [];
 
     const vt_range = [0, layer.extent - 1];
+    const pixelScaleX = (vt_range[1] - vt_range[0]) / this._tileWidth;
     const pos = map(
       Cartesian2.fromCartesian3(
         this._tilingScheme.projection.project(new Cartographic(longitude, latitude)),
@@ -292,8 +307,20 @@ export class Renderer {
     for (let i = 0; i < layer.length; i++) {
       const feature = layer.feature(i);
       if (
-        VectorTileFeature.types[feature.type] === "Polygon" &&
-        isFeatureClicked(feature.loadGeometry(), point)
+        (VectorTileFeature.types[feature.type] === "Polygon" &&
+          isFeatureClicked(feature.loadGeometry(), point)) ||
+        (VectorTileFeature.types[feature.type] === "LineString" &&
+          isLineStringClicked(
+            feature.loadGeometry(),
+            point,
+            featureHandlerOrNumber(this._pickLineWidth, feature, requestedTile) * pixelScaleX,
+          )) ||
+        (VectorTileFeature.types[feature.type] === "Point" &&
+          isPointClicked(
+            feature.loadGeometry(),
+            point,
+            featureHandlerOrNumber(this._pickPointRadius, feature, requestedTile) * pixelScaleX,
+          ))
       ) {
         const feat = onSelectFeature(feature, requestedTile, currentLayer);
         if (feat) {
@@ -336,6 +363,9 @@ const defaultParseTile = async (url?: string) => {
     return;
   }
 };
+
+const defaultPickPointRadius = 5;
+const defaultPickLineWidth = 5;
 
 const parseMVT = (ab?: ArrayBuffer) => {
   return new VectorTile(new Pbf(ab));
@@ -396,3 +426,14 @@ const buildURLWithTileCoordinates = (template: URLTemplate, tile: TileCoordinate
   const y = x.replace("{y}", String(tile.y));
   return y;
 };
+
+function featureHandlerOrNumber(
+  f: FeatureHandler<number> | number,
+  feature: VectorTileFeature,
+  tileCoords: TileCoordinates,
+): number {
+  if (typeof f === "number") {
+    return f;
+  }
+  return f(feature, tileCoords);
+}
