@@ -29,6 +29,8 @@ export type ImageryProviderOption = {
   resolution?: number;
   worker?: boolean;
   layer?: LayerSimple;
+  pickPointRadius?: number | FeatureHandler<number>;
+  pickLineWidth?: number | FeatureHandler<number>;
 };
 
 export const CESIUM_CANVAS_SIZE = 256;
