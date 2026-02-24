@@ -1,7 +1,9 @@
-import { Cartesian3, Color } from "cesium";
+import { Cartesian3, Color, Ion } from "cesium";
 import { Viewer, Entity } from "resium";
 
 import { Imagery } from "./Imagery";
+
+Ion.defaultAccessToken = import.meta.env.VITE_CESIUM_ACCESS_TOKEN;
 
 function App() {
   return (
