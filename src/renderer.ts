@@ -143,35 +143,24 @@ export class Renderer {
     shouldRenderLine: boolean,
   ) {
     context.beginPath();
-    const draw = () => {
-      if (shouldRenderLine) {
-        context.stroke();
-      }
-      context.fill();
-    };
 
-    let verticesLength = 0;
-    // Polygon rings
     for (let i2 = 0; i2 < coordinates.length; i2++) {
       const v = coordinates[i2];
-      if (verticesLength + v.length > 5400) {
-        draw();
-        verticesLength = 0;
-        context.beginPath();
-      }
 
       let pos = v[0];
       context.moveTo(pos.x * extentFactor, pos.y * extentFactor);
 
-      // Polygon ring points
       for (let j = 1; j < v.length; j++) {
         pos = v[j];
         context.lineTo(pos.x * extentFactor, pos.y * extentFactor);
       }
-      verticesLength += v.length;
+      context.closePath();
     }
 
-    if (verticesLength > 0) draw();
+    if (shouldRenderLine) {
+      context.stroke();
+    }
+    context.fill();
   }
 
   _renderPoint(context: RenderingContext2D, coordinates: Point[][], extentFactor: number) {
