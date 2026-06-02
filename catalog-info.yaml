@@ -1,0 +1,18 @@
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: reearth-cesium-mvt-imagery-provider
+  namespace: reearth
+  description: Render MVT data on Cesium (extended for Re:Earth core)
+  annotations:
+    github.com/project-slug: reearth/reearth-cesium-mvt-imagery-provider
+  links:
+  - url: https://github.com/reearth/reearth-cesium-mvt-imagery-provider
+    title: GitHub
+    icon: github
+  tags:
+  - typescript
+spec:
+  type: service
+  lifecycle: experimental
+  owner: reearth/lib
